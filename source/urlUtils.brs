@@ -74,14 +74,21 @@ Function HttpRequest(url As String) as Object
     obj.ContentType                 = http_content_type
     obj.AddAuthorization            = http_authorization
     obj.FirstParam                  = true
+    obj.CountParams                 = 0
     obj.AddParam                    = http_add_param
+    obj.UpdateParam                 = http_update_param
+    obj.RemoveParam                 = http_remove_param
     obj.BuildQuery                  = http_build_query
     obj.AddRawQuery                 = http_add_raw_query
     obj.PrepareUrlForQuery          = http_prepare_url_for_query
     obj.GetToStringWithTimeout      = http_get_to_string_with_timeout
     obj.PostFromStringWithTimeout   = http_post_from_string_with_timeout
 
-    if Instr(1, url, "?") > 0 then obj.FirstParam = false
+    if Instr(1, url, "?") > 0 then
+        r = CreateObject("roRegex", "&", "")
+        obj.CountParams = r.Split(url).Count()
+        obj.FirstParam = false
+    end if
 
     return obj
 End Function
@@ -133,7 +140,7 @@ End Function
 
 Function http_prepare_url_for_query() As String
     url = m.Http.GetUrl()
-    if m.FirstParam then
+    if m.FirstParam Or m.CountParams = 0 then
         url = url + "?"
         m.FirstParam = false
     else
@@ -158,6 +165,39 @@ Function http_add_param(name As String, val As String) as Void
     if Instr(1, url, q) > 0 return    'Parameter already present
     q = q + m.Http.Escape(val)
     m.AddRawQuery(q)
+    m.CountParams = m.CountParams + 1
+End Function
+
+
+'**********************************************************
+'** Update a query parameter
+'**********************************************************
+
+Function http_update_param(name As String, val As String) as Void
+
+End Function
+
+
+'**********************************************************
+'** Remove a query parameter
+'**********************************************************
+
+Function http_remove_param(name As String) as Void
+    p = m.Http.Escape(name)
+    r = CreateObject("roRegex", "&" + p + "(\=[^&]*)?(?=&|$)", "i")
+    url = m.Http.GetUrl()
+    if r.IsMatch(url)
+        new_url = r.Replace(url, "")
+    else
+        r = CreateObject("roRegex", "\?" + p + "(\=[^&]*)?(?=&|$)&?", "i")
+        if m.CountParams = 1 ' Removing last parameter
+            new_url = r.Replace(url, "")
+        else
+            new_url = r.Replace(url, "?")
+        End if
+    end If
+    m.CountParams = m.CountParams - 1
+    m.Http.SetUrl(new_url)
 End Function
 
 
