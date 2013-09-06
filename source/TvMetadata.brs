@@ -17,13 +17,16 @@ Function ClassTvMetadata()
         this.jumpList     = {}
 
         ' functions
-        this.GetShowList  = tvmetadata_show_list
-        this.GetResumable = tvmetadata_resumable
-        this.GetLatest    = tvmetadata_latest
-        this.GetNextUp    = tvmetadata_nextup
-        this.GetGenres    = tvmetadata_genres
-        this.GetSeasons   = tvmetadata_seasons
-        this.GetEpisodes  = tvmetadata_episodes
+        this.GetShowList       = tvmetadata_show_list
+        this.GetNextUp         = tvmetadata_nextup
+        this.GetGenres         = tvmetadata_genres
+        this.GetGenreShowList  = tvmetadata_genre_show_list
+        this.GetSeasons        = tvmetadata_seasons
+        this.GetEpisodes       = tvmetadata_episodes
+        this.GetEpisodeDetails = tvmetadata_episode_details
+        this.GetResumable      = tvmetadata_resumable
+        this.GetLatest         = tvmetadata_latest
+        this.GetThemeMusic     = tvmetadata_theme_music
 
         ' singleton
         m.ClassTvMetadata = this
@@ -40,7 +43,7 @@ End Function
 
 
 '**********************************************************
-'** Get All TV Shows From Server
+'** Get All TV Shows
 '**********************************************************
 
 Function tvmetadata_show_list() As Object
@@ -196,7 +199,7 @@ End Function
 
 
 '**********************************************************
-'** Get Resumable TV From Server
+'** Get Resumable TV
 '**********************************************************
 
 Function tvmetadata_resumable() As Object
@@ -298,7 +301,7 @@ End Function
 
 
 '**********************************************************
-'** Get Latest Unwatched TV Episodes From Server
+'** Get Latest Unwatched TV Episodes
 '**********************************************************
 
 Function tvmetadata_latest() As Object
@@ -400,7 +403,7 @@ End Function
 
 
 '**********************************************************
-'** Get Next Unwatched TV Episodes From Server
+'** Get Next Unwatched TV Episodes
 '**********************************************************
 
 Function tvmetadata_nextup() As Object
@@ -409,7 +412,7 @@ Function tvmetadata_nextup() As Object
 
     ' Query
     query = {
-        userid: HttpEncode(getGlobalVar("user").Id)
+        userid: getGlobalVar("user").Id
         limit: "10"
         fields: "SeriesInfo,DateCreated,Overview"
     }
@@ -529,7 +532,7 @@ End Function
 
 
 '**********************************************************
-'** Get TV Genres From Server
+'** Get TV Genres
 '**********************************************************
 
 Function tvmetadata_genres() As Object
@@ -538,7 +541,7 @@ Function tvmetadata_genres() As Object
 
     ' Query
     query = {
-        userid: HttpEncode(getGlobalVar("user").Id)
+        userid: getGlobalVar("user").Id
         recursive: "true"
         includeitemtypes: "Series"
         fields: "ItemCounts"
@@ -635,7 +638,7 @@ End Function
 
 
 '**********************************************************
-'** Get TV Seasons for Show From Server
+'** Get TV Seasons for Show
 '**********************************************************
 
 Function tvmetadata_seasons(seriesId As String) As Object
@@ -686,7 +689,7 @@ End Function
 
 
 '**********************************************************
-'** Get TV Episodes in a Season From Server
+'** Get TV Episodes in a Season
 '**********************************************************
 
 Function tvmetadata_episodes(seasonId As String) As Object
@@ -816,6 +819,403 @@ Function tvmetadata_episodes(seasonId As String) As Object
         return contentList
     else
         Debug("Failed to Get TV Episodes List For Season")
+    end if
+
+    return invalid
+End Function
+
+
+'**********************************************************
+'** Get TV Shows in a Genre
+'**********************************************************
+
+Function tvmetadata_genre_show_list(genreName As String) As Object
+    ' Validate Parameter
+    if validateParam(genreName, "roString", "tvmetadata_genre_show_list") = false return invalid
+
+    ' URL
+    url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items"
+
+    ' Query
+    query = {
+        genres: genreName
+        recursive: "true"
+        includeitemtypes: "Series"
+        fields: "ItemCounts,SortName,Overview"
+        sortby: "SortName"
+        sortorder: "Ascending"
+    }
+
+    ' Prepare Request
+    request = HttpRequest(url)
+    request.ContentType("json")
+    request.AddAuthorization()
+    request.BuildQuery(query)
+
+    ' Execute Request
+    response = request.GetToStringWithTimeout(10)
+    if response <> invalid
+
+        contentList = CreateObject("roArray", 25, true)
+        items       = ParseJSON(response).Items
+
+        for each i in items
+            metaData = {}
+
+            ' Set the Content Type
+            metaData.ContentType = "Series"
+
+            ' Set the Id
+            metaData.Id = i.Id
+
+            ' Show / Hide display title
+            if RegRead("prefTVTitle") = "show" Or RegRead("prefTVTitle") = invalid
+                metaData.ShortDescriptionLine1 = firstOf(i.Name, "Unknown")
+            end if
+            
+            ' Set the Season count
+            if i.ChildCount <> invalid
+                metaData.ShortDescriptionLine2 = Pluralize(i.ChildCount, "season")
+            end if
+
+            '** PopUp Metadata **
+
+            ' Set the display title
+            metaData.Title = firstOf(i.Name, "Unknown")
+
+            ' Set the Episode count
+            if i.RecursiveItemCount <> invalid
+                metaData.NumEpisodes = i.RecursiveItemCount
+            end if
+
+            ' Set the Series overview
+            if i.Overview <> invalid
+                metaData.Description = i.Overview
+            end if
+
+            ' Set the Series rating
+            if i.OfficialRating <> invalid
+                metaData.Rating = i.OfficialRating
+            end if
+
+            ' Set the Series star rating
+            if i.CommunityRating <> invalid
+                metaData.UserStarRating = Int(i.CommunityRating) * 10
+            end if
+
+            ' Get Image Type From Preference
+            if RegRead("prefTVImageType") = "poster"
+
+                ' Get Image Sizes
+                sizes = GetImageSizes("mixed-aspect-ratio-portrait")
+
+                ' Check if Item has Image, otherwise use default
+                if i.ImageTags.Primary <> "" And i.ImageTags.Primary <> invalid
+                    imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.Id) + "/Images/Primary/0"
+
+                    metaData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, i.ImageTags.Primary)
+                    metaData.SDPosterUrl = BuildImage(imageUrl, sizes.sdWidth, sizes.sdHeight, i.ImageTags.Primary)
+
+                else 
+                    metaData.HDPosterUrl = "pkg://images/items/collection.png"
+                    metaData.SDPosterUrl = "pkg://images/items/collection.png"
+
+                end if
+
+            else if RegRead("prefTVImageType") = "thumb"
+
+                ' Get Image Sizes
+                sizes = GetImageSizes("two-row-flat-landscape-custom")
+
+                ' Check if Item has Image, otherwise use default
+                if i.ImageTags.Thumb <> "" And i.ImageTags.Thumb <> invalid
+                    imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.Id) + "/Images/Thumb/0"
+
+                    metaData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, i.ImageTags.Thumb)
+                    metaData.SDPosterUrl = BuildImage(imageUrl, sizes.sdWidth, sizes.sdHeight, i.ImageTags.Thumb)
+
+                else 
+                    metaData.HDPosterUrl = "pkg://images/items/collection.png"
+                    metaData.SDPosterUrl = "pkg://images/items/collection.png"
+
+                end if
+
+            else
+
+                ' Get Image Sizes
+                sizes = GetImageSizes("two-row-flat-landscape-custom")
+
+                ' Check if Item has Image, otherwise use default
+                if i.BackdropImageTags[0] <> "" And i.BackdropImageTags[0] <> invalid
+                    imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.Id) + "/Images/Backdrop/0"
+
+                    metaData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, i.BackdropImageTags[0])
+                    metaData.SDPosterUrl = BuildImage(imageUrl, sizes.sdWidth, sizes.sdHeight, i.BackdropImageTags[0])
+
+                else 
+                    metaData.HDPosterUrl = "pkg://images/items/collection.png"
+                    metaData.SDPosterUrl = "pkg://images/items/collection.png"
+
+                end if
+
+            end if
+
+            contentList.push( metaData )
+        end for
+        
+        return contentList
+    else
+        Debug("Failed to Get TV Shows List In Genre")
+    end if
+
+    return invalid
+End Function
+
+
+'**********************************************************
+'** Get TV Episode Details
+'**********************************************************
+
+Function tvmetadata_episode_details(episodeId As String) As Object
+    ' Validate Parameter
+    if validateParam(episodeId, "roString", "tvmetadata_episode_details") = false return invalid
+
+    ' URL
+    url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items/" + HttpEncode(episodeId)
+
+    ' Prepare Request
+    request = HttpRequest(url)
+    request.ContentType("json")
+    request.AddAuthorization()
+
+    ' Execute Request
+    response = request.GetToStringWithTimeout(10)
+    if response <> invalid
+
+        ' Fixes bug within BRS Json Parser
+        regex         = CreateObject("roRegex", Chr(34) + "(RunTimeTicks|PlaybackPositionTicks|StartPositionTicks)" + Chr(34) + ":(-?[0-9]+),", "i")
+        fixedResponse = regex.ReplaceAll(response, Chr(34) + "\1" + Chr(34) + ":" + Chr(34) + "\2" + Chr(34) + ",")
+
+        i = ParseJSON(fixedResponse)
+
+        metaData = {}
+
+        ' Set the Content Type
+        metaData.ContentType = "Episode"
+
+        ' Set the Id
+        metaData.Id = i.Id
+
+        'metaData.ContentId = i.Id ' Not sure it Is needed
+
+        ' Set the display title
+        metaData.Title = firstOf(i.Name, "Unknown")
+
+        ' Set the display series title
+        if i.SeriesName <> invalid
+            metaData.SeriesTitle = i.SeriesName
+        end if
+
+        ' Set the Overview
+        if i.Overview <> invalid
+            metaData.Description = i.Overview
+        end if
+
+        ' Set the Episode Rating
+        if i.OfficialRating <> invalid
+            metaData.Rating = i.OfficialRating
+        end if
+
+        ' Set the Release Date
+        if isInt(i.ProductionYear)
+            metaData.ReleaseDate = itostr(i.ProductionYear)
+        end if
+
+        ' Set the Run Time
+        if i.RunTimeTicks <> "" And i.RunTimeTicks <> invalid
+            metaData.Length = Int(((i.RunTimeTicks).ToFloat() / 10000) / 1000)
+        end if
+
+        ' Set the Playback Position
+        if i.UserData.PlaybackPositionTicks <> "" And i.UserData.PlaybackPositionTicks <> invalid
+            metaData.PlaybackPosition = i.UserData.PlaybackPositionTicks
+        end if
+
+        ' Build Episode Information
+        episodeInfo = ""
+
+        ' Add Series Name
+        if i.SeriesName <> invalid
+            episodeInfo = i.SeriesName
+        end if
+
+        ' Add Season Number
+        if i.ParentIndexNumber <> invalid
+            if episodeInfo <> ""
+                episodeInfo = episodeInfo + " / "
+            end if
+
+            episodeInfo = episodeInfo + "Season " + itostr(i.ParentIndexNumber)
+        end if
+
+        ' Add Episode Number
+        if i.IndexNumber <> invalid
+            if episodeInfo <> ""
+                episodeInfo = episodeInfo + " / "
+            end if
+            
+            episodeInfo = episodeInfo + "Episode " + itostr(i.IndexNumber)
+        end if
+
+        ' Use Actors Area for Series / Season / Episode
+        metaData.Actors = episodeInfo
+
+        ' Setup Watched Status In Category Area
+        if i.UserData.Played <> invalid And i.UserData.Played = true
+            if i.UserData.LastPlayedDate <> invalid
+                metaData.Categories = "Watched on " + formatDateStamp(i.UserData.LastPlayedDate)
+            else
+                metaData.Categories = "Watched"
+            end if
+        end if
+
+        ' Setup Chapters
+        if i.Chapters <> invalid
+
+            metaData.Chapters = CreateObject("roArray", 5, true)
+            chapterCount = 0
+
+            for each c in i.Chapters
+                chapterData = {}
+
+                ' Set the chapter display title
+                chapterData.Title = firstOf(c.Name, "Unknown")
+                chapterData.ShortDescriptionLine1 = firstOf(c.Name, "Unknown")
+
+                ' Set chapter time
+                if c.StartPositionTicks <> invalid
+                    chapterData.ShortDescriptionLine2 = FormatChapterTime(c.StartPositionTicks)
+                    chapterData.StartPositionTicks = c.StartPositionTicks
+                end if
+
+                ' Get Image Sizes
+                sizes = GetImageSizes("flat-episodic-16x9")
+
+                ' Check if Chapter has Image, otherwise use default
+                if c.ImageTag <> "" And c.ImageTag <> invalid
+                    imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.Id) + "/Images/Chapter/" + itostr(chapterCount)
+
+                    chapterData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, c.ImageTag)
+                    chapterData.SDPosterUrl = BuildImage(imageUrl, sizes.sdWidth, sizes.sdHeight, c.ImageTag)
+
+                else 
+                    chapterData.HDPosterUrl = "pkg://images/items/collection.png"
+                    chapterData.SDPosterUrl = "pkg://images/items/collection.png"
+
+                end if
+
+                ' Increment Count
+                chapterCount = chapterCount + 1
+
+                metaData.Chapters.push( chapterData )
+            end for
+
+        end if
+
+        ' Check Media Streams For HD Video And Surround Sound Audio
+        ' Improve this
+        streamInfo = GetStreamInfo(i.MediaStreams)
+
+        metaData.HDBranded = streamInfo.isHDVideo
+        metaData.IsHD = streamInfo.isHDVideo
+
+        if streamInfo.isSSAudio = true
+            metaData.AudioFormat = "dolby-digital"
+        end if
+
+        ' Setup Video Player
+        ' Improve this
+        streamData = SetupVideoStreams(episodeId, i.VideoType, i.Path)
+
+        if streamData <> invalid
+            metaData.StreamData = streamData
+
+            ' Determine Direct Play
+            if StreamData.Stream <> invalid
+                metaData.IsDirectPlay = true
+            else
+                metaData.IsDirectPlay = false
+            end if
+        end if
+
+        ' Get Image Sizes
+        sizes = GetImageSizes("rounded-rect-16x9-generic")
+
+        ' Check if Item has Image, otherwise use default
+        if i.ImageTags.Primary <> "" And i.ImageTags.Primary <> invalid
+            imageUrl = GetServerBaseUrl() + "/Items/" + HttpEncode(i.Id) + "/Images/Primary/0"
+
+            metaData.HDPosterUrl = BuildImage(imageUrl, sizes.hdWidth, sizes.hdHeight, i.ImageTags.Primary)
+            metaData.SDPosterUrl = BuildImage(imageUrl, sizes.sdWidth, sizes.sdHeight, i.ImageTags.Primary)
+
+        else 
+            metaData.HDPosterUrl = "pkg://images/items/collection.png"
+            metaData.SDPosterUrl = "pkg://images/items/collection.png"
+
+        end if
+        
+        return metaData
+    else
+        Debug("Failed to Get TV Episode Details")
+    end if
+
+    return invalid
+End Function
+
+
+'**********************************************************
+'** Get TV Show Theme Music
+'**********************************************************
+
+Function tvmetadata_theme_music(seriesId As String) As Object
+    ' Validate Parameter
+    if validateParam(seriesId, "roString", "tvmetadata_theme_music") = false return invalid
+
+    ' URL
+    url = GetServerBaseUrl() + "/Items/" + HttpEncode(seriesId) + "/ThemeSongs"
+
+    ' Query
+    query = {
+        userid: getGlobalVar("user").Id
+    }
+
+    ' Prepare Request
+    request = HttpRequest(url)
+    request.ContentType("json")
+    request.AddAuthorization()
+    request.BuildQuery(query)
+
+    ' Execute Request
+    response = request.GetToStringWithTimeout(10)
+    if response <> invalid
+
+        contentList = CreateObject("roArray", 2, true)
+        items       = ParseJSON(response).Items
+
+        for each i in items
+            metaData = {}
+
+            ' Set Theme Songs
+            if i.Id <> invalid And i.Path <> invalid
+                metaData = SetupAudioStream(i.Id, i.Path)
+            end if
+
+            contentList.push( metaData )
+        end for
+        
+        return contentList
+    else
+        Debug("Failed to Get TV Show Theme Music")
     end if
 
     return invalid
