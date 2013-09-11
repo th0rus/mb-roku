@@ -46,7 +46,7 @@ End Function
 '** Get All TV Shows
 '**********************************************************
 
-Function tvmetadata_show_list() As Object
+Function tvmetadata_show_list(filters = invalid As Object) As Object
     ' URL
     url = GetServerBaseUrl() + "/Users/" + HttpEncode(getGlobalVar("user").Id) + "/Items"
 
@@ -58,6 +58,11 @@ Function tvmetadata_show_list() As Object
         sortby: "SortName"
         sortorder: "Ascending"
     }
+
+    ' Filter/Sort Query
+    if filters <> invalid
+        query = FilterQuery(query, filters)
+    end if
 
     ' Prepare Request
     request = HttpRequest(url)
@@ -71,9 +76,14 @@ Function tvmetadata_show_list() As Object
 
         jumpListCount = 0
         contentList   = CreateObject("roArray", 25, true)
-        items         = ParseJSON(response).Items
+        jsonObj       = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for TV Shows List")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -88,8 +98,8 @@ Function tvmetadata_show_list() As Object
             end if
             
             ' Set the Season count
-            if i.ChildCount <> invalid
-                metaData.ShortDescriptionLine2 = Pluralize(i.ChildCount, "season")
+            if i.SeasonCount <> invalid
+                metaData.ShortDescriptionLine2 = Pluralize(i.SeasonCount, "season")
             end if
 
             '** PopUp Metadata **
@@ -228,9 +238,14 @@ Function tvmetadata_resumable() As Object
     if response <> invalid
 
         contentList = CreateObject("roArray", 10, true)
-        items       = ParseJSON(response).Items
+        jsonObj     = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for Resumable TV Shows")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -330,9 +345,14 @@ Function tvmetadata_latest() As Object
     if response <> invalid
 
         contentList = CreateObject("roArray", 10, true)
-        items       = ParseJSON(response).Items
+        jsonObj     = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for Recently Added TV Shows")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -413,7 +433,7 @@ Function tvmetadata_nextup() As Object
     ' Query
     query = {
         userid: getGlobalVar("user").Id
-        limit: "10"
+        limit: "20"
         fields: "SeriesInfo,DateCreated,Overview"
     }
 
@@ -432,9 +452,14 @@ Function tvmetadata_nextup() As Object
         fixedResponse = regex.ReplaceAll(response, Chr(34) + "\1" + Chr(34) + ":" + Chr(34) + "\2" + Chr(34) + ",")
 
         contentList = CreateObject("roArray", 10, true)
-        items       = ParseJSON(fixedResponse).Items
+        jsonObj     = ParseJSON(fixedResponse)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for Next Episodes to Watch for TV Shows")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -560,9 +585,14 @@ Function tvmetadata_genres() As Object
     if response <> invalid
 
         contentList = CreateObject("roArray", 10, true)
-        items       = ParseJSON(response).Items
+        jsonObj     = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for Genres for TV Shows")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -577,8 +607,8 @@ Function tvmetadata_genres() As Object
             metaData.ShortDescriptionLine1 = firstOf(i.Name, "Unknown")
 
             ' Set Series Count
-            if i.ChildCount <> invalid
-                metaData.ShortDescriptionLine2 = itostr(i.ChildCount) + " shows"
+            if i.SeriesCount <> invalid
+                metaData.ShortDescriptionLine2 = Pluralize(i.SeriesCount, "show")
             end if
 
             ' Get Image Type From Preference
@@ -669,9 +699,14 @@ Function tvmetadata_seasons(seriesId As String) As Object
 
         listIds   = CreateObject("roArray", 7, true)
         listNames = CreateObject("roArray", 7, true)
-        items     = ParseJSON(response).Items
+        jsonObj   = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for TV Seasons List for Show")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             ' Set the Id
             listIds.push( i.Id )
 
@@ -724,9 +759,14 @@ Function tvmetadata_episodes(seasonId As String) As Object
         fixedResponse = regex.ReplaceAll(response, Chr(34) + "\1" + Chr(34) + ":" + Chr(34) + "\2" + Chr(34) + ",")
 
         contentList = CreateObject("roArray", 10, true)
-        items       = ParseJSON(fixedResponse).Items
+        jsonObj     = ParseJSON(fixedResponse)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for TV Episodes List For Season")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -857,9 +897,14 @@ Function tvmetadata_genre_show_list(genreName As String) As Object
     if response <> invalid
 
         contentList = CreateObject("roArray", 25, true)
-        items       = ParseJSON(response).Items
+        jsonObj     = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for TV Shows List In Genre")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set the Content Type
@@ -874,8 +919,8 @@ Function tvmetadata_genre_show_list(genreName As String) As Object
             end if
             
             ' Set the Season count
-            if i.ChildCount <> invalid
-                metaData.ShortDescriptionLine2 = Pluralize(i.ChildCount, "season")
+            if i.SeasonCount <> invalid
+                metaData.ShortDescriptionLine2 = Pluralize(i.SeasonCount, "season")
             end if
 
             '** PopUp Metadata **
@@ -997,6 +1042,11 @@ Function tvmetadata_episode_details(episodeId As String) As Object
         fixedResponse = regex.ReplaceAll(response, Chr(34) + "\1" + Chr(34) + ":" + Chr(34) + "\2" + Chr(34) + ",")
 
         i = ParseJSON(fixedResponse)
+
+        if i = invalid
+            Debug("Error while parsing JSON response for TV Episode Details")
+            return invalid
+        end if
 
         metaData = {}
 
@@ -1200,9 +1250,14 @@ Function tvmetadata_theme_music(seriesId As String) As Object
     if response <> invalid
 
         contentList = CreateObject("roArray", 2, true)
-        items       = ParseJSON(response).Items
+        jsonObj     = ParseJSON(response)
 
-        for each i in items
+        if jsonObj = invalid
+            Debug("Error while parsing JSON response for TV Show Theme Music")
+            return invalid
+        end if
+
+        for each i in jsonObj.Items
             metaData = {}
 
             ' Set Theme Songs

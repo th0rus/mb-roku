@@ -25,54 +25,49 @@ Function ShowHomePage()
     m.tvToggle    = ""
     m.musicToggle = ""
 
-    ' Setup Row Data
-    screen.rowNames   = CreateObject("roArray", 3, true)
-    screen.rowStyles  = CreateObject("roArray", 3, true)
-    screen.rowContent = CreateObject("roArray", 3, true)
-
     If itemCounts.MovieCount > 0 Then
-        AddGridRow(screen, "Movies", "landscape")
+        screen.AddRow("Movies", "landscape")
     End If
 
     If itemCounts.SeriesCount > 0 Then
-        AddGridRow(screen, "TV", "landscape")
+        screen.AddRow("TV", "landscape")
     End If
 
     If itemCounts.SongCount > 0 Then
-        AddGridRow(screen, "Music", "landscape")
+        screen.AddRow("Music", "landscape")
     End If
 
-    AddGridRow(screen, "Options", "landscape")
+    screen.AddRow("Options", "landscape")
 
-    ShowGridNames(screen)
+    screen.ShowNames()
 
     ' Get Data
     If itemCounts.MovieCount > 0 Then
         moviesButtons = GetMoviesButtons()
-        AddGridRowContent(screen, moviesButtons)
+        screen.AddRowContent(moviesButtons)
     End If
 
     If itemCounts.SeriesCount > 0 Then
         tvButtons = GetTVButtons()
-        AddGridRowContent(screen, tvButtons)
+        screen.AddRowContent(tvButtons)
     End If
 
     If itemCounts.SongCount > 0 Then
         musicButtons = GetMusicButtons()
-        AddGridRowContent(screen, musicButtons)
+        screen.AddRowContent(musicButtons)
     End If
 
     optionButtons = GetOptionsButtons()
-    AddGridRowContent(screen, optionButtons)
+    screen.AddRowContent(optionButtons)
 
     ' Show Screen
-    screen.Screen.Show()
+    screen.Show()
 
     ' Hide Description Popup
-    screen.Screen.SetDescriptionVisible(false)
+    screen.SetDescriptionVisible(false)
 
     while true
-        msg = wait(0, screen.Screen.GetMessagePort())
+        msg = wait(0, screen.Port)
 
         if type(msg) = "roGridScreenEvent" Then
             if msg.isListFocused() then
@@ -90,7 +85,7 @@ Function ShowHomePage()
                     ' Toggle Movie Display
                     GetNextMovieToggle()
                     moviesButtons = GetMoviesButtons()
-                    UpdateGridRowContent(screen, row, moviesButtons)
+                    screen.UpdateRowContent(row, moviesButtons)
 
                 Else If screen.rowContent[row][selection].ContentType = "Movie" Then
                     ShowMoviesDetailPage(screen.rowContent[row][selection].Id)
@@ -102,7 +97,7 @@ Function ShowHomePage()
                     ' Toggle TV Display
                     GetNextTVToggle()
                     tvButtons = GetTVButtons()
-                    UpdateGridRowContent(screen, row, tvButtons)
+                    screen.UpdateRowContent(row, tvButtons)
 
                 Else If screen.rowContent[row][selection].ContentType = "Episode" Then
                     ShowTVDetailPage(screen.rowContent[row][selection].Id)
@@ -174,8 +169,8 @@ Function GetMoviesButtons() As Object
             Title: "Movie Library"
             ContentType: "MovieLibrary"
             ShortDescriptionLine1: "Movie Library"
-            HDPosterUrl: "pkg://images/items/MovieTile_HD.png"
-            SDPosterUrl: "pkg://images/items/MovieTile_SD.png"
+            HDPosterUrl: "pkg://images/tiles/hd-movies.jpg"
+            SDPosterUrl: "pkg://images/tiles/sd-movies.jpg"
         }
     ]
 
@@ -191,8 +186,8 @@ Function GetMoviesButtons() As Object
     MovieMetadata = InitMovieMetadata()
 
     If m.movieToggle = "latest" Then
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Latest_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Latest_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-latest.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-latest.png"
 
         ' Get Latest Unwatched Movies
         recentMovies = MovieMetadata.GetLatest()
@@ -202,14 +197,14 @@ Function GetMoviesButtons() As Object
         End if
 
     Else If m.movieToggle = "favorite" Then
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Favorites_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Favorites_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-favorites.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-favorites.png"
 
         buttons.Append( switchButton )
 
     Else
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Resume_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Resume_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-resume.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-resume.png"
 
         ' Check For Resumable Movies, otherwise default to latest
         resumeMovies = MovieMetadata.GetResumable()
@@ -220,8 +215,8 @@ Function GetMoviesButtons() As Object
             m.movieToggle = "latest"
 
             ' Override Image
-            switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Latest_HD.png"
-            switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Latest_SD.png"
+            switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-latest.png"
+            switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-latest.png"
 
             ' Get Latest Unwatched Movies
             recentMovies = MovieMetadata.GetLatest()
@@ -263,8 +258,8 @@ Function GetTVButtons() As Object
             Title: "TV Library"
             ContentType: "TVLibrary"
             ShortDescriptionLine1: "TV Library"
-            HDPosterUrl: "pkg://images/items/TVTile_HD.png"
-            SDPosterUrl: "pkg://images/items/TVTile_SD.png"
+            HDPosterUrl: "pkg://images/tiles/hd-tv.jpg"
+            SDPosterUrl: "pkg://images/tiles/sd-tv.jpg"
         }
     ]
 
@@ -280,8 +275,8 @@ Function GetTVButtons() As Object
     TvMetadata = InitTvMetadata()
 
     If m.tvToggle = "latest" Then
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Latest_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Latest_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-latest.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-latest.png"
 
         ' Get Latest Unwatched TV
         recentTV = TvMetadata.GetLatest()
@@ -291,15 +286,15 @@ Function GetTVButtons() As Object
         End if
 
     Else If m.tvToggle = "favorite" Then
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Favorites_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Favorites_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-favorites.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-favorites.png"
 
         buttons.Append( switchButton )
 
     Else
 
-        switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Resume_HD.png"
-        switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Resume_SD.png"
+        switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-resume.png"
+        switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-resume.png"
 
         ' Check For Resumable TV, otherwise default to latest
         resumeTV = TvMetadata.GetResumable()
@@ -310,8 +305,8 @@ Function GetTVButtons() As Object
             m.tvToggle = "latest"
 
             ' Override Image
-            switchButton[0].HDPosterUrl = "pkg://images/items/Toggle_Latest_HD.png"
-            switchButton[0].SDPosterUrl = "pkg://images/items/Toggle_Latest_SD.png"
+            switchButton[0].HDPosterUrl = "pkg://images/tiles/hd-toggle-latest.png"
+            switchButton[0].SDPosterUrl = "pkg://images/tiles/sd-toggle-latest.png"
 
             ' Get Latest Unwatched TV
             recentTV = TvMetadata.GetLatest()
@@ -353,8 +348,8 @@ Function GetMusicButtons() As Object
             Title: "Music Library"
             ContentType: "MusicLibrary"
             ShortDescriptionLine1: "Music Library"
-            HDPosterUrl: "pkg://images/items/MusicTile_HD.png"
-            SDPosterUrl: "pkg://images/items/MusicTile_SD.png"
+            HDPosterUrl: "pkg://images/tiles/hd-music.jpg"
+            SDPosterUrl: "pkg://images/tiles/sd-music.jpg"
         }
     ]
 
@@ -381,16 +376,16 @@ Function GetOptionsButtons() As Object
             Title: "Switch User"
             ContentType: "SwitchUser"
             ShortDescriptionLine1: "Switch User"
-            HDPosterUrl: "pkg://images/items/SwitchUsersTile_HD.png"
-            SDPosterUrl: "pkg://images/items/SwitchUsersTile_SD.png"
+            HDPosterUrl: "pkg://images/tiles/hd-switch-user.jpg"
+            SDPosterUrl: "pkg://images/tiles/sd-switch-user.jpg"
         },
         {
             Title: "Preferences"
             ContentType: "Preferences"
             ShortDescriptionLine1: "Preferences"
             ShortDescriptionLine2: "Version " + getGlobalVar("channelVersion", "Unknown")
-            HDPosterUrl: "pkg://images/items/PreferencesTile_HD.png"
-            SDPosterUrl: "pkg://images/items/PreferencesTile_SD.png"
+            HDPosterUrl: "pkg://images/tiles/hd-preferences.jpg"
+            SDPosterUrl: "pkg://images/tiles/sd-preferences.jpg"
         }
     ]
 
